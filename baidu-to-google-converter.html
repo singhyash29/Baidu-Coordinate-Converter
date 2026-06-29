@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Baidu → Google Maps Converter</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#0a0e17;--surface:#111827;--surface2:#1a2332;--border:#2a3444;--accent:#38bdf8;--accent2:#818cf8;--green:#34d399;--red:#f87171;--orange:#fb923c;--text:#e2e8f0;--text-dim:#64748b;--text-bright:#f8fafc; }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+  .bg-grid{position:fixed;inset:0;background-image:linear-gradient(rgba(56,189,248,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(56,189,248,0.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0}
+  .container{position:relative;z-index:1;max-width:960px;margin:0 auto;padding:40px 24px}
+  header{text-align:center;margin-bottom:40px}
+  header h1{font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:700;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:8px}
+  header p{color:var(--text-dim);font-size:14px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:20px}
+  .card-title{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+  .card-title .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 2s ease infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+  .input-group{margin-bottom:16px}
+  .input-group label{display:block;font-size:12px;color:var(--text-dim);margin-bottom:6px;font-family:'JetBrains Mono',monospace}
+  textarea,input[type="text"]{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 14px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;outline:none;transition:border-color 0.2s;resize:vertical}
+  textarea:focus,input[type="text"]:focus{border-color:var(--accent)}
+  textarea{min-height:100px}
+  .btn-row{display:flex;gap:10px;flex-wrap:wrap}
+  button{font-family:'DM Sans',sans-serif;font-weight:600;font-size:14px;padding:10px 20px;border-radius:8px;border:none;cursor:pointer;transition:all 0.2s}
+  .btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:var(--bg)}
+  .btn-primary:hover{opacity:0.9;transform:translateY(-1px)}
+  .btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
+  .btn-secondary:hover{border-color:var(--accent)}
+  .btn-small{font-size:11px;padding:4px 10px;border-radius:4px;background:var(--surface2);color:var(--accent);border:1px solid var(--border);font-family:'JetBrains Mono',monospace}
+  .btn-small:hover{background:var(--border)}
+  .results-table{width:100%;border-collapse:collapse;font-size:13px}
+  .results-table th{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;text-align:left;padding:10px 12px;border-bottom:1px solid var(--border)}
+  .results-table td{padding:10px 12px;border-bottom:1px solid rgba(42,52,68,0.5);font-family:'JetBrains Mono',monospace;font-size:12px;vertical-align:top}
+  .results-table tr:hover td{background:rgba(56,189,248,0.03)}
+  .coord-tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
+  .tag-baidu{background:rgba(251,146,60,0.15);color:var(--orange)}
+  .tag-wgs{background:rgba(52,211,153,0.15);color:var(--green)}
+  .google-link{color:var(--accent);text-decoration:none;font-size:11px}
+  .google-link:hover{text-decoration:underline}
+  .status{font-size:12px;padding:8px 12px;border-radius:6px;margin-top:12px;font-family:'JetBrains Mono',monospace}
+  .status-success{background:rgba(52,211,153,0.1);color:var(--green)}
+  .status-error{background:rgba(248,113,113,0.1);color:var(--red)}
+  .pipeline-visual{display:flex;align-items:center;justify-content:center;gap:8px;padding:16px;margin-bottom:20px;font-family:'JetBrains Mono',monospace;font-size:12px;flex-wrap:wrap}
+  .pipeline-step{padding:6px 12px;border-radius:6px;font-weight:600}
+  .pipeline-arrow{color:var(--text-dim)}
+  .step-baidu{background:rgba(251,146,60,0.15);color:var(--orange)}
+  .step-bd09{background:rgba(251,146,60,0.1);color:var(--orange)}
+  .step-gcj{background:rgba(129,140,248,0.15);color:var(--accent2)}
+  .step-wgs{background:rgba(52,211,153,0.15);color:var(--green)}
+  .manual-inputs{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .tab-bar{display:flex;gap:4px;margin-bottom:20px;background:var(--bg);padding:4px;border-radius:8px;border:1px solid var(--border)}
+  .tab{flex:1;text-align:center;padding:8px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.2s;color:var(--text-dim);border:none;background:none}
+  .tab.active{background:var(--surface2);color:var(--text-bright)}
+  .tab:hover:not(.active){color:var(--text)}
+  .hidden{display:none}
+  #csv-output{width:100%;min-height:120px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;color:var(--green);font-family:'JetBrains Mono',monospace;font-size:11px;resize:vertical}
+  .batch-hint{background:var(--surface2);border:1px dashed var(--border);border-radius:8px;padding:14px;margin-top:12px}
+  .batch-hint code{background:var(--bg);padding:2px 6px;border-radius:4px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent)}
+  .help-text{font-size:12px;color:var(--text-dim);line-height:1.6;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="bg-grid"></div>
+<div class="container">
+  <header>
+    <h1>BAIDU → GOOGLE MAPS</h1>
+    <p>Precise coordinate conversion with iterative inverse — sub-50m accuracy globally</p>
+  </header>
+  <div class="pipeline-visual">
+    <span class="pipeline-step step-baidu">Baidu MC</span>
+    <span class="pipeline-arrow">→</span>
+    <span class="pipeline-step step-bd09">BD-09 lat/lng</span>
+    <span class="pipeline-arrow">→</span>
+    <span class="pipeline-step step-gcj">GCJ-02</span>
+    <span class="pipeline-arrow">→</span>
+    <span class="pipeline-step step-wgs">WGS-84</span>
+  </div>
+  <div class="tab-bar">
+    <button class="tab active" onclick="switchTab('url')">Paste URLs</button>
+    <button class="tab" onclick="switchTab('bd09')">BD-09 Lat/Lng</button>
+    <button class="tab" onclick="switchTab('manual')">Mercator XY</button>
+    <button class="tab" onclick="switchTab('batch')">Batch CSV</button>
+  </div>
+
+  <div id="tab-url" class="card">
+    <div class="card-title"><span class="dot"></span>Paste Baidu Map URLs</div>
+    <div class="input-group">
+      <label>Baidu URLs or BD-09 coordinates — one per line</label>
+      <textarea id="url-input" placeholder="https://map.baidu.com/search/.../@12964340.705,4825689.33,15.74z?...
+28.1460414, 112.9484306"></textarea>
+    </div>
+    <div class="btn-row">
+      <button class="btn-primary" onclick="convertURLs()">Convert</button>
+      <button class="btn-secondary" onclick="clearAll()">Clear</button>
+    </div>
+  </div>
+
+  <div id="tab-bd09" class="card hidden">
+    <div class="card-title"><span class="dot"></span>BD-09 Latitude / Longitude</div>
+    <div class="input-group">
+      <label>Paste coordinates — one per line (lat, lng)</label>
+      <textarea id="bd09-input" placeholder="28.1460414, 112.9484306
+39.913378, 116.459387"></textarea>
+    </div>
+    <div class="input-group">
+      <label>Asset Names (optional, one per line)</label>
+      <textarea id="bd09-names" style="min-height:60px" placeholder="Changsha Facility
+Beijing Fujitsu"></textarea>
+    </div>
+    <div class="btn-row">
+      <button class="btn-primary" onclick="convertBD09Input()">Convert</button>
+      <button class="btn-secondary" onclick="clearAll()">Clear</button>
+    </div>
+  </div>
+
+  <div id="tab-manual" class="card hidden">
+    <div class="card-title"><span class="dot"></span>Baidu Mercator Coordinates</div>
+    <div class="manual-inputs">
+      <div class="input-group"><label>X (Easting)</label><input type="text" id="mc-x" placeholder="12964340.705"></div>
+      <div class="input-group"><label>Y (Northing)</label><input type="text" id="mc-y" placeholder="4825689.33"></div>
+    </div>
+    <div class="input-group" style="margin-top:12px"><label>Asset Name (optional)</label><input type="text" id="asset-name" placeholder="Beijing Fujitsu"></div>
+    <div class="btn-row" style="margin-top:16px">
+      <button class="btn-primary" onclick="convertManual()">Convert</button>
+      <button class="btn-secondary" onclick="clearAll()">Clear</button>
+    </div>
+  </div>
+
+  <div id="tab-batch" class="card hidden">
+    <div class="card-title"><span class="dot"></span>Batch CSV Input</div>
+    <div class="input-group">
+      <label>name,url OR name,lat,lng — one per line</label>
+      <textarea id="csv-input" placeholder="Beijing Fujitsu, https://map.baidu.com/.../@12964340.705,4825689.33,15z?...
+Changsha, 28.1460414, 112.9484306"></textarea>
+    </div>
+    <div class="btn-row">
+      <button class="btn-primary" onclick="convertCSV()">Convert All</button>
+      <button class="btn-secondary" onclick="exportCSV()">Export CSV</button>
+      <button class="btn-secondary" onclick="clearAll()">Clear</button>
+    </div>
+    <div class="batch-hint"><div class="help-text">Format: <code>Name, Baidu URL</code> or <code>Name, lat, lng</code>. Mixes supported.</div></div>
+  </div>
+
+  <div id="results-card" class="card hidden">
+    <div class="card-title"><span class="dot"></span>Results</div>
+    <div style="overflow-x:auto">
+      <table class="results-table">
+        <thead><tr><th>#</th><th>Asset</th><th>Baidu BD-09</th><th>WGS-84</th><th>Google Maps</th><th>Copy</th></tr></thead>
+        <tbody id="results-body"></tbody>
+      </table>
+    </div>
+    <div id="status-bar"></div>
+  </div>
+
+  <div id="csv-card" class="card hidden">
+    <div class="card-title"><span class="dot"></span>CSV Output</div>
+    <textarea id="csv-output" readonly></textarea>
+    <div style="margin-top:10px"><button class="btn-small" onclick="copyCSV()">Copy to Clipboard</button></div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// PRECISE Baidu Coordinate Engine
+// Uses binary search on Baidu's LL2MC forward polynomial
+// to invert MC->LL precisely at ALL latitudes
+// ============================================================
+
+const LL2MC = [
+  [-0.0015702102444,111320.7020616939,1704480524535203,-10338987376042340,26112667856603880,-35149669176653700,26595700718403920,-10725012454188240,1800819912950474,82.5],
+  [0.0008277824516172526,111320.7020463578,647795574.6671607,-4082003173.641316,10774905663.51142,-15171875531.51559,12053065928.18678,-5124939663.577472,913311935.9512032,67.5],
+  [0.00337398766765,111320.7020202162,4481351.045890365,-23393751.19931662,79682215.47186455,-115964993.2797253,97236711.15602145,-43661946.33752821,8477230.501135234,52.5],
+  [0.00220636496208,111320.7020209128,51751.86112841131,3796837.749470245,992013.7397791013,-1221952.21711287,1340652.697009075,-620943.6990984312,144416.9293806241,37.5],
+  [-0.0003441963504368392,111320.7020576856,278.2353980772752,2485758.690035394,6070.750963243378,54821.18345352118,9540.606633304236,-2710.55326746645,1405.483844121726,22.5],
+  [-0.0003218135878613132,111320.7020701615,0.00369383431289,823725.6402795718,0.46104986909093,2351.343141331292,1.58060784298199,8.77738589078284,0.37238884252424,7.45]
+];
+
+function getRow(absLat) {
+  for (const r of LL2MC) if (absLat >= r[9]) return r;
+  return LL2MC[LL2MC.length-1];
+}
+
+function ll2mcY(lat) {
+  const a = Math.abs(lat), T = getRow(a), cF = a / T[9];
+  let y = T[2]+T[3]*cF+T[4]*cF**2+T[5]*cF**3+T[6]*cF**4+T[7]*cF**5+T[8]*cF**6;
+  return lat < 0 ? -y : y;
+}
+
+function mc2bd09(mcX, mcY) {
+  // Latitude: binary search on forward function (most reliable)
+  let lo = 0, hi = 85;
+  const targetY = Math.abs(mcY);
+  for (let i = 0; i < 100; i++) {
+    const mid = (lo+hi)/2;
+    Math.abs(ll2mcY(mid)) < targetY ? lo = mid : hi = mid;
+  }
+  const lat = (lo+hi)/2;
+  // Longitude: use the accurate lat to select correct row
+  const T = getRow(lat);
+  const lng = (Math.abs(mcX) - T[0]) / T[1];
+  return {
+    lat: mcY < 0 ? -lat : lat,
+    lng: mcX < 0 ? -lng : lng
+  };
+}
+
+function bd09ToGCJ02(bLat, bLng) {
+  const xp = Math.PI*3000/180, x=bLng-0.0065, y=bLat-0.006;
+  const z = Math.sqrt(x*x+y*y)-0.00002*Math.sin(y*xp);
+  const t = Math.atan2(y,x)-0.000003*Math.cos(x*xp);
+  return { lat: z*Math.sin(t), lng: z*Math.cos(t) };
+}
+
+function gcj02ToWGS84(gLat, gLng) {
+  const a=6378245,ee=0.00669342162296594323;
+  function tL(n,l){let r=-100+2*n+3*l+.2*l*l+.1*n*l+.2*Math.sqrt(Math.abs(n));r+=(20*Math.sin(6*n*Math.PI)+20*Math.sin(2*n*Math.PI))*2/3;r+=(20*Math.sin(l*Math.PI)+40*Math.sin(l/3*Math.PI))*2/3;r+=(160*Math.sin(l/12*Math.PI)+320*Math.sin(l*Math.PI/30))*2/3;return r}
+  function tN(n,l){let r=300+n+2*l+.1*n*n+.1*n*l+.1*Math.sqrt(Math.abs(n));r+=(20*Math.sin(6*n*Math.PI)+20*Math.sin(2*n*Math.PI))*2/3;r+=(20*Math.sin(n*Math.PI)+40*Math.sin(n/3*Math.PI))*2/3;r+=(150*Math.sin(n/12*Math.PI)+300*Math.sin(n/30*Math.PI))*2/3;return r}
+  function w2g(la,ln){let dl=tL(ln-105,la-35),dn=tN(ln-105,la-35);const r=la/180*Math.PI;let m=Math.sin(r);m=1-ee*m*m;const s=Math.sqrt(m);dl=dl*180/((a*(1-ee))/(m*s)*Math.PI);dn=dn*180/(a/s*Math.cos(r)*Math.PI);return{lat:la+dl,lng:ln+dn}}
+  let wL=gLat,wN=gLng;
+  for(let i=0;i<6;i++){const t=w2g(wL,wN);wL+=gLat-t.lat;wN+=gLng-t.lng}
+  return{lat:wL,lng:wN};
+}
+
+function isOutsideGCJ02(lat, lng) {
+  if (lat>=22.05&&lat<=22.25&&lng>=113.50&&lng<=113.62) return 'Macau';
+  if (lat>=22.15&&lat<=22.55&&lng>=113.80&&lng<=114.50) return 'Hong Kong';
+  if (lat>=21.9&&lat<=25.35&&lng>=119.9&&lng<=122.1) return 'Taiwan';
+  if (lat<0.8||lat>55.8||lng<72.0||lng>137.9) return 'Outside China';
+  return false;
+}
+function convertBaiduMC(x,y){const bd=mc2bd09(x,y),gcj=bd09ToGCJ02(bd.lat,bd.lng),region=isOutsideGCJ02(gcj.lat,gcj.lng),wgs=region?{lat:gcj.lat,lng:gcj.lng}:gcj02ToWGS84(gcj.lat,gcj.lng);return{bd09:bd,gcj02:gcj,wgs84:wgs,region}}
+function convertBD09(lat,lng){const bd={lat,lng},gcj=bd09ToGCJ02(lat,lng),region=isOutsideGCJ02(gcj.lat,gcj.lng),wgs=region?{lat:gcj.lat,lng:gcj.lng}:gcj02ToWGS84(gcj.lat,gcj.lng);return{bd09:bd,gcj02:gcj,wgs84:wgs,region}}
+
+function parseBaiduURL(u){const m=u.match(/@(-?[\d.]+),(-?[\d.]+)/);return m?{x:parseFloat(m[1]),y:parseFloat(m[2])}:null}
+function parseSearchQuery(u){try{const p=u.match(/\/poi\/([^/]+)/);if(p)return decodeURIComponent(p[1]).replace(/[,，].*/,'');const m=u.match(/\/search\/([^/]+)/);if(m)return decodeURIComponent(m[1]).replace(/[,，].*/,'');const w=u.match(/[?&]wd=([^&]+)/);if(w)return decodeURIComponent(w[1]).replace(/[，,].*/,'')}catch(e){}return''}
+
+let allResults=[];
+
+function switchTab(tab){document.querySelectorAll('.tab').forEach((t,i)=>{t.classList.toggle('active',['url','bd09','manual','batch'][i]===tab)});['url','bd09','manual','batch'].forEach(t=>document.getElementById('tab-'+t).classList.toggle('hidden',t!==tab))}
+
+function showResults(results, fromURL){
+  allResults=results;const tbody=document.getElementById('results-body');tbody.innerHTML='';
+  let regions=new Set();
+  results.forEach((r,i)=>{if(r.region)regions.add(r.region);const badge=r.region?`<span style="color:var(--orange);font-size:10px;font-family:'JetBrains Mono',monospace;display:block;margin-top:2px">${r.region} — no GCJ-02</span>`:'';const tr=document.createElement('tr');tr.innerHTML=`
+    <td style="color:var(--text-dim)">${i+1}</td>
+    <td style="color:var(--text-bright);max-width:160px;word-break:break-all;font-family:'DM Sans',sans-serif;font-size:12px">${r.name||'—'}${badge}</td>
+    <td><span class="coord-tag tag-baidu">${r.bd09.lat.toFixed(6)}, ${r.bd09.lng.toFixed(6)}</span></td>
+    <td><span class="coord-tag tag-wgs">${r.wgs84.lat.toFixed(6)}, ${r.wgs84.lng.toFixed(6)}</span></td>
+    <td><a class="google-link" href="https://www.google.com/maps?q=${r.wgs84.lat.toFixed(6)},${r.wgs84.lng.toFixed(6)}" target="_blank">Open ↗</a></td>
+    <td><button class="btn-small" onclick="copyCoord(${r.wgs84.lat},${r.wgs84.lng})">Copy</button></td>`;tbody.appendChild(tr)});
+  document.getElementById('results-card').classList.remove('hidden');
+  let msg=`Converted ${results.length} location${results.length>1?'s':''} successfully`;
+  let type='success';
+  if(regions.size>0){msg+=` · ${[...regions].join(', ')}: GCJ-02 step skipped`;type='info'}
+  if(fromURL){msg+=' · Note: URL coords are map view center (~50-200m from pin). For exact pin location, use BD-09 Lat/Lng tab';type='info'}
+  document.getElementById('status-bar').innerHTML=`<div class="status status-${type}">${msg}</div>`;
+}
+
+function convertURLs(){
+  const text=document.getElementById('url-input').value.trim();if(!text)return;
+  const results=[];
+  for(const line of text.split('\n').filter(l=>l.trim())){
+    const t=line.trim(),coords=parseBaiduURL(t);
+    if(coords){results.push({name:parseSearchQuery(t),...convertBaiduMC(coords.x,coords.y)});continue}
+    const m=t.match(/^(-?[\d.]+)[,\s]+(-?[\d.]+)$/);
+    if(m){const la=parseFloat(m[1]),ln=parseFloat(m[2]);if(!isNaN(la)&&!isNaN(ln)&&Math.abs(la)<=90&&Math.abs(ln)<=180){results.push({name:'',...convertBD09(la,ln)});continue}}
+  }
+  if(!results.length){document.getElementById('results-card').classList.remove('hidden');document.getElementById('status-bar').innerHTML='<div class="status status-error">No valid inputs found.</div>';return}
+  const hasURLs=text.split('\n').some(l=>l.trim().match(/https?:\/\//));
+  showResults(results, hasURLs);
+}
+
+function convertBD09Input(){
+  const text=document.getElementById('bd09-input').value.trim();if(!text)return;
+  const names=(document.getElementById('bd09-names').value.trim()||'').split('\n').map(n=>n.trim());
+  const results=[];
+  text.split('\n').filter(l=>l.trim()).forEach((line,i)=>{
+    const m=line.trim().match(/(-?[\d.]+)[,\s]+(-?[\d.]+)/);
+    if(m){const la=parseFloat(m[1]),ln=parseFloat(m[2]);if(!isNaN(la)&&!isNaN(ln))results.push({name:names[i]||'',...convertBD09(la,ln)})}
+  });
+  if(!results.length){document.getElementById('results-card').classList.remove('hidden');document.getElementById('status-bar').innerHTML='<div class="status status-error">No valid coordinates found.</div>';return}
+  showResults(results);
+}
+
+function convertManual(){
+  const x=parseFloat(document.getElementById('mc-x').value),y=parseFloat(document.getElementById('mc-y').value);
+  if(isNaN(x)||isNaN(y)){alert('Enter valid X and Y');return}
+  showResults([{name:document.getElementById('asset-name').value.trim()||'Manual',...convertBaiduMC(x,y)}]);
+}
+
+function convertCSV(){
+  const text=document.getElementById('csv-input').value.trim();if(!text)return;
+  const results=[];
+  for(const line of text.split('\n').filter(l=>l.trim())){
+    let done=false,name='';
+    const um=line.match(/(https?:\/\/[^\s]+)/);
+    if(um){const url=um[1];name=line.replace(url,'').replace(/^[\s,]+|[\s,]+$/g,'');const c=parseBaiduURL(url);if(c){results.push({name:name||parseSearchQuery(url),...convertBaiduMC(c.x,c.y)});done=true}}
+    if(!done){const p=line.split(',').map(s=>s.trim());if(p.length>=2){const ln=parseFloat(p[p.length-1]),la=parseFloat(p[p.length-2]);if(!isNaN(la)&&!isNaN(ln)&&Math.abs(la)<=90&&Math.abs(ln)<=180){name=p.length>2?p.slice(0,-2).join(', '):'';results.push({name,...convertBD09(la,ln)})}}}
+  }
+  if(!results.length){document.getElementById('results-card').classList.remove('hidden');document.getElementById('status-bar').innerHTML='<div class="status status-error">No valid entries found.</div>';return}
+  showResults(results, text.split('\n').some(l=>l.match(/https?:\/\//)));
+}
+
+function exportCSV(){
+  if(!allResults.length){alert('Convert first.');return}
+  let csv='asset_name,bd09_lat,bd09_lng,gcj02_lat,gcj02_lng,wgs84_lat,wgs84_lng,region,google_maps_link\n';
+  for(const r of allResults){csv+=`"${(r.name||'').replace(/"/g,'""')}",${r.bd09.lat.toFixed(6)},${r.bd09.lng.toFixed(6)},${r.gcj02.lat.toFixed(6)},${r.gcj02.lng.toFixed(6)},${r.wgs84.lat.toFixed(6)},${r.wgs84.lng.toFixed(6)},"${r.region||'Mainland China'}",https://www.google.com/maps?q=${r.wgs84.lat.toFixed(6)},${r.wgs84.lng.toFixed(6)}\n`}
+  document.getElementById('csv-output').value=csv;document.getElementById('csv-card').classList.remove('hidden');
+}
+
+function copyCoord(la,ln){navigator.clipboard.writeText(`${la.toFixed(6)}, ${ln.toFixed(6)}`)}
+function copyCSV(){const e=document.getElementById('csv-output');e.select();navigator.clipboard.writeText(e.value)}
+function clearAll(){document.querySelectorAll('textarea,input[type="text"]').forEach(e=>e.value='');document.getElementById('results-card').classList.add('hidden');document.getElementById('csv-card').classList.add('hidden');allResults=[]}
+</script>
+</body>
+</html>
